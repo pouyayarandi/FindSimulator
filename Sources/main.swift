@@ -36,17 +36,39 @@ struct findsimulator: ParsableCommand {
     @Flag(name: .shortAndLong, help: "Search for exact device name.")
     var exact = false
 
-    @Flag(name: .long, help: "Print udid only. It doesn not work with --list-all")
+    @Flag(name: [.long, .customShort("u")], help: "Print udid only. It doesn not work with --list-all")
     var onlyUdid = false
+
+    @Option(name: .shortAndLong, help: "Config based on xcodebuild destination format")
+    var destination = ""
 
     @Argument(help: "A string check on the name of the simulator.")
     var name = ""
-    
+
     mutating func run() throws {
         guard version != 1 else {
             printVersion()
             return
         }
+
+        // override flags with destination attributes
+        if destination != "" {
+            let parser = DestinationParser(destination: destination)
+            if let osType = parser.osType {
+                self.osType = osType
+            }
+            if let majorOSVersion = parser.majorOSVersion {
+                self.majorOSVersion = majorOSVersion
+            }
+            if let subOSVersion = parser.subOSVersion {
+                self.subOSVersion = subOSVersion
+            }
+            if let name = parser.name {
+                self.exact = true
+                self.name = name
+            }
+        }
+
         let controller = SimulatorControl(
             osFilter: osType,
             majorVersionFilter: majorOSVersion,
@@ -115,7 +137,7 @@ private extension OsVersion {
 private extension NSError {
     static let noDeviceFound: NSError = {
         let domain = Bundle.main.object(forInfoDictionaryKey: "CFBundleIdentifier") as? String ?? "com.farbflash"
-        return NSError(domain: "\(domain).error", code: 1, userInfo: [NSLocalizedDescriptionKey: "No simulator found, wghich matches the query."])
+        return NSError(domain: "\(domain).error", code: 1, userInfo: [NSLocalizedDescriptionKey: "No simulator found, which matches the query."])
     }()
 }
 
