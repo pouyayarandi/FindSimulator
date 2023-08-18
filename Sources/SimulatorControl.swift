@@ -27,7 +27,10 @@ struct SimulatorControl {
     /// Note,: If 'majorOSVersion' is set to 'latest', then minor version will also be 'latest'. Does only apply to filterSimulators().
     let minorVersionFilter: String
 
-    /// A string contains check on the name of the simulator.
+    /// If exact is true, name filter should exactly match the name of device.
+    let exact: Bool
+
+    /// A string check on the name of the simulator.
     let nameFilter: String
 
     private let decoder = JSONDecoder()
@@ -56,15 +59,25 @@ struct SimulatorControl {
         let rslt = phonesPairedWithWatch()
         switch rslt {
         case .success(let pairs):
-            for (_, pair) in pairs.pairs where pair.isAvailable {
-                if nameFilter.isEmpty || pair.phone.name.contains(nameFilter) {
-                    simulators.append(pair.phone)
-                }
+            for (_, pair) in pairs.pairs where pair.isAvailable && isMatched(pair) {
+                simulators.append(pair.phone)
             }
         case .failure(let error):
             throw(error)
         }
         return simulators
+    }
+
+    private func isMatched(_ pair: DevicePair) -> Bool {
+        if nameFilter.isEmpty {
+            return true
+        } else if exact, pair.phone.name == nameFilter {
+            return true
+        } else if exact, pair.phone.name.contains(nameFilter) {
+            return true
+        } else {
+            return false
+        }
     }
 
     // MARK: - Private interface

@@ -32,9 +32,15 @@ struct findsimulator: ParsableCommand {
     
     @Flag(name: .shortAndLong, help: "Print version of this tool.")
     var version: Int
-    
-    @Argument(help: "A string contains check on the name of the simulator.")
-    var name_contains = ""
+
+    @Flag(name: .shortAndLong, help: "Search for exact device name.")
+    var exact = false
+
+    @Flag(name: .long, help: "Print udid only. It doesn not work with --list-all")
+    var onlyUdid = false
+
+    @Argument(help: "A string check on the name of the simulator.")
+    var name = ""
     
     mutating func run() throws {
         guard version != 1 else {
@@ -45,7 +51,8 @@ struct findsimulator: ParsableCommand {
             osFilter: osType,
             majorVersionFilter: majorOSVersion,
             minorVersionFilter: subOSVersion,
-            nameFilter: name_contains
+            exact: exact,
+            nameFilter: name
         )
         if pairs == 1 {
             let sims = (try controller.filterSimulatorPairs()).sorted(by: { $0.name > $1.name})
@@ -55,7 +62,11 @@ struct findsimulator: ParsableCommand {
                 }
             } else {
                 if let first = sims.first {
-                    print("platform=iOS Simulator,id=\(first.udid)")
+                    if onlyUdid {
+                        print(first.udid)
+                    } else {
+                        print("platform=iOS Simulator,id=\(first.udid)")
+                    }
                 } else {
                     throw(NSError.noDeviceFound)
                 }
@@ -64,14 +75,22 @@ struct findsimulator: ParsableCommand {
             let versions = (try controller.filterSimulators()).sorted(by: { $0.versionString > $1.versionString})
             if listAll == 1 {
                 versions.forEach { osVersion in
-                    osVersion.simulators.sorted(by: { $0.name > $1.name}).forEach {
+                    osVersion.simulators
+                        .filter({ $0.isMatched(name: name, exact: exact) })
+                        .sorted(by: { $0.name > $1.name}).forEach {
                         print("platform=\(osVersion.platform),OS=\(osVersion.versionString),id=\($0.udid),name=\($0.name)")
                     }
                 }
             } else {
                 if let firstVersion = versions.first,
-                   let first = firstVersion.simulators.sorted(by: { $0.name > $1.name}).first {
-                    print("platform=\(firstVersion.platform),id=\(first.udid)")
+                   let first = firstVersion.simulators
+                    .filter({ $0.isMatched(name: name, exact: exact) })
+                    .sorted(by: { $0.name > $1.name}).first {
+                    if onlyUdid {
+                        print(first.udid)
+                    } else {
+                        print("platform=\(firstVersion.platform),id=\(first.udid)")
+                    }
                 } else {
                     throw(NSError.noDeviceFound)
                 }
